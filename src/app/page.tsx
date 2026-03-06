@@ -700,7 +700,6 @@ export default function App(){
             <div style={{fontSize:10,lineHeight:1.5,color:t.textMuted,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{stripCite(hoverCard.summary)}</div>
             <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>{(hoverCard.tags||[]).slice(0,4).map(function(tg,i){return <span key={i} style={{padding:"2px 6px",borderRadius:10,fontSize:8,background:t.surface,color:t.textMuted}}>{tg}</span>;})}</div>
           </div>}
-          })}
         </div>
       </div>}
 

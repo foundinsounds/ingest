@@ -415,6 +415,8 @@ export default function App(){
   var[hoverCard,setHoverCard]=useState(null);
   var[hoverPos,setHoverPos]=useState({x:0,y:0});
   var hoverTimer=useRef(null);
+  var[showShortcuts,setShowShortcuts]=useState(false);
+  var[hoveredConn,setHoveredConn]=useState(null);
   var[dark,setDark]=useState(false);
   var[showSettings,setShowSettings]=useState(false);
   var[defaultView,setDefaultView]=useState("canvas");
@@ -471,12 +473,13 @@ export default function App(){
       if(e.key===" "&&e.target.tagName!=="INPUT"&&e.target.tagName!=="TEXTAREA"){e.preventDefault();setSpace(true);}
       if(e.key==="Shift")setSH(true);
       if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();setModal(true);}
-      if(e.key==="Escape"){if(showSettings)setShowSettings(false);else if(modal)setModal(false);else if(sel)setSel(null);}
+      if(e.key==="Escape"){if(showShortcuts)setShowShortcuts(false);else if(showSettings)setShowSettings(false);else if(modal)setModal(false);else if(sel)setSel(null);}
+      if(e.key==="?"&&e.target.tagName!=="INPUT"&&e.target.tagName!=="TEXTAREA")setShowShortcuts(function(s){return !s;});
     }
     function ku(e){if(e.key===" ")setSpace(false);if(e.key==="Shift"){setSH(false);setLF(null);setLMP(null);}}
     window.addEventListener("keydown",kd);window.addEventListener("keyup",ku);
     return function(){window.removeEventListener("keydown",kd);window.removeEventListener("keyup",ku);};
-  },[modal,sel,showSettings]);
+  },[modal,sel,showSettings,showShortcuts]);
   useEffect(function(){if(modal&&iRef.current)setTimeout(function(){iRef.current.focus();},120);},[modal]);
 
   var onBgDown=useCallback(function(e){if(space||e.button===1){setPanning(true);e.preventDefault();}},[space]);
@@ -619,6 +622,7 @@ export default function App(){
           <input type="text" value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Search..." style={{width:isMobile?80:150,padding:isMobile?"5px 8px":"6px 10px",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:9,fontSize:11,outline:"none",fontFamily:"'Sora',sans-serif",color:t.text}}/>
           <button onClick={function(){setModal(true);}} style={{padding:isMobile?"5px 10px":"6px 14px",borderRadius:9,border:"none",background:"#6366f1",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'Sora',sans-serif",boxShadow:"0 2px 8px rgba(99,102,241,.2)",whiteSpace:"nowrap"}}>{isMobile?"+":"+ Ingest"}</button>
           {!isMobile&&<button onClick={function(){setDark(!dark);}} style={{width:28,height:28,borderRadius:8,border:"none",background:t.surface,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}} title="Toggle theme">{dark?"\u2600\uFE0F":"\uD83C\uDF19"}</button>}
+          <button onClick={function(){setShowShortcuts(true);}} style={{width:28,height:28,borderRadius:8,border:"none",background:t.surface,cursor:"pointer",fontSize:12,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}} title="Keyboard shortcuts">?</button>
           <button onClick={function(){setShowSettings(true);}} style={{width:28,height:28,borderRadius:8,border:"none",background:t.surface,cursor:"pointer",fontSize:12,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}} title="Settings">{"\u2699\uFE0F"}</button>
         </div>
       </header>
@@ -669,15 +673,24 @@ export default function App(){
             {visibleCards.map(function(c,i){var cat=cats[c.cat];if(!cat)return null;return <path key={"cl"+i} d={"M"+cat.x+","+cat.y+" Q"+((cat.x+c.cx+70)/2)+","+((cat.y+c.cy+16)/2-8)+" "+(c.cx+70)+","+(c.cy+16)} fill="none" stroke={cat.color} strokeWidth={1} opacity={0.12}/>;})}
             {conns.map(function(cn){
               // Resolve endpoints - could be card IDs or category names
-              var ax,ay,bx,by,aFound=false,bFound=false;
+              var ax,ay,bx,by,aFound=false,bFound=false,aName="",bName="";
               var ac=visibleCards.find(function(c){return c.id===cn.from;});
-              if(ac){ax=ac.cx+70;ay=ac.cy+16;aFound=true;}
-              else if(cats[cn.from]){ax=cats[cn.from].x;ay=cats[cn.from].y;aFound=true;}
+              if(ac){ax=ac.cx+70;ay=ac.cy+16;aFound=true;aName=ac.title;}
+              else if(cats[cn.from]){ax=cats[cn.from].x;ay=cats[cn.from].y;aFound=true;aName=cn.from;}
               var bc=visibleCards.find(function(c){return c.id===cn.to;});
-              if(bc){bx=bc.cx+70;by=bc.cy+16;bFound=true;}
-              else if(cats[cn.to]){bx=cats[cn.to].x;by=cats[cn.to].y;bFound=true;}
+              if(bc){bx=bc.cx+70;by=bc.cy+16;bFound=true;bName=bc.title;}
+              else if(cats[cn.to]){bx=cats[cn.to].x;by=cats[cn.to].y;bFound=true;bName=cn.to;}
               if(!aFound||!bFound)return null;
-              return <g key={cn.id}><path d={"M"+ax+","+ay+" Q"+((ax+bx)/2)+","+((ay+by)/2-12)+" "+bx+","+by} fill="none" stroke="rgba(99,102,241,.15)" strokeWidth={1.5}/><path d={"M"+ax+","+ay+" Q"+((ax+bx)/2)+","+((ay+by)/2-12)+" "+bx+","+by} fill="none" stroke="transparent" strokeWidth={14} style={{pointerEvents:"stroke",cursor:"pointer"}} onClick={function(){setConns(function(cs){return cs.filter(function(c){return c.id!==cn.id;});});}}/></g>;
+              var isHov=hoveredConn===cn.id;
+              var mx=(ax+bx)/2,my=(ay+by)/2-12;
+              return <g key={cn.id}>
+                <path d={"M"+ax+","+ay+" Q"+mx+","+my+" "+bx+","+by} fill="none" stroke={isHov?"rgba(99,102,241,.5)":"rgba(99,102,241,.15)"} strokeWidth={isHov?2.5:1.5} style={{transition:"all .2s"}}/>
+                <path d={"M"+ax+","+ay+" Q"+mx+","+my+" "+bx+","+by} fill="none" stroke="transparent" strokeWidth={16} style={{pointerEvents:"stroke",cursor:"pointer"}} onMouseEnter={function(){setHoveredConn(cn.id);}} onMouseLeave={function(){setHoveredConn(null);}} onClick={function(){setConns(function(cs){return cs.filter(function(c){return c.id!==cn.id;});});setHoveredConn(null);}}/>
+                {isHov&&<g>
+                  <rect x={mx-60} y={my-22} width={120} height={20} rx={6} fill={t.card} stroke="rgba(99,102,241,.3)" strokeWidth={1}/>
+                  <text x={mx} y={my-9} textAnchor="middle" fill="#6366f1" fontSize={8} fontFamily="'Sora',sans-serif" fontWeight={600}>{(aName||"?").substring(0,12)} ↔ {(bName||"?").substring(0,12)}</text>
+                </g>}
+              </g>;
             })}
           </svg>}
           {/* Notes */}
@@ -705,7 +718,13 @@ export default function App(){
       </div>}
 
       {/* List View */}
-      {view==="list"&&<div style={{flex:1,overflowY:"auto",padding:"10px 18px 32px"}}>{filtered.length===0?<div style={{textAlign:"center",padding:"80px 20px"}}><div style={{fontSize:40,marginBottom:12,opacity:.3}}>{search?"\uD83D\uDD0D":"\u2726"}</div><div style={{fontSize:16,fontWeight:700,color:t.text,marginBottom:4}}>{search?"No matches found":"Nothing here yet"}</div><div style={{fontSize:12,color:t.textSub}}>{search?"Try a different search term":"Hit + Ingest to drop your first link"}</div></div>:filtered.map(function(card){
+      {view==="list"&&<div style={{flex:1,overflowY:"auto",padding:isMobile?"8px 10px 80px":"10px 18px 32px"}}>
+        {/* Mobile filter row */}
+        {isMobile&&<div style={{display:"flex",gap:4,marginBottom:8,overflowX:"auto",paddingBottom:4}}>
+          {types.map(function(tp){var ts2=tp!=="ALL"?TS[tp]:null;var a=filter===tp;return <button key={tp} onClick={function(){setFilter(tp);}} style={{padding:"5px 12px",borderRadius:20,border:a?"none":"1px solid "+t.inputBorder,background:a?(ts2?ts2.color+"15":"rgba(99,102,241,.06)"):t.surface,color:a?(ts2?ts2.color:"#6366f1"):t.textSub,fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Sora',sans-serif",whiteSpace:"nowrap",flexShrink:0}}>{tp==="ALL"?"All":ts2?ts2.label:tp}</button>;})}
+          <button onClick={function(){setDark(!dark);}} style={{padding:"5px 10px",borderRadius:20,border:"1px solid "+t.inputBorder,background:t.surface,fontSize:10,cursor:"pointer",flexShrink:0}}>{dark?"\u2600\uFE0F":"\uD83C\uDF19"}</button>
+        </div>}
+        {filtered.length===0?<div style={{textAlign:"center",padding:"80px 20px"}}><div style={{fontSize:40,marginBottom:12,opacity:.3}}>{search?"\uD83D\uDD0D":"\u2726"}</div><div style={{fontSize:16,fontWeight:700,color:t.text,marginBottom:4}}>{search?"No matches found":"Nothing here yet"}</div><div style={{fontSize:12,color:t.textSub}}>{search?"Try a different search term":"Hit + Ingest to drop your first link"}</div></div>:filtered.map(function(card){
         if(card.status==="ingesting")return <div key={card.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.card,borderRadius:12,border:"1.5px dashed #6366f1",marginBottom:5}}><video src={VIDEO_SRC} autoPlay loop muted playsInline style={{width:18,height:18,objectFit:"cover",borderRadius:"50%",flexShrink:0}}></video><span style={{fontSize:12,fontWeight:500,color:"#6366f1"}}>Ingesting {card.domain}...</span></div>;
         var ts2=TS[card.type]||TS.OTHER,sc2=sC(card.score),isH=card.hiddenFromCanvas;
         return <div key={card.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",background:isH?t.surface:t.card,backdropFilter:"blur(8px)",borderRadius:12,border:"1px solid "+t.cardBorder,cursor:"pointer",transition:"all .2s",marginBottom:5,opacity:isH?0.5:1}}>
@@ -736,6 +755,29 @@ export default function App(){
 
     {sel&&<Drawer card={sel} onClose={function(){setSel(null);}} onUpdate={updateCard} onDelete={deleteCard} theme={t}/>}
     {showSettings&&<SettingsPanel dark={dark} onTheme={setDark} user={user} defaultView={defaultView} onDefaultView={setDefaultView} onClose={function(){setShowSettings(false);}} onSignOut={function(){setAuthed(false);setUser("");}} theme={t}/>}
+
+    {/* Keyboard Shortcuts */}
+    {showShortcuts&&<div onClick={function(){setShowShortcuts(false);}} style={{position:"fixed",inset:0,zIndex:300,background:t.modalBg,backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={function(e){e.stopPropagation();}} style={{width:"min(340px,90vw)",background:t.modalCard,backdropFilter:"blur(20px)",borderRadius:20,boxShadow:"0 24px 60px rgba(0,0,0,.15)",border:"1px solid "+t.cardBorder,padding:24,fontFamily:"'Sora',sans-serif"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:700,color:t.text}}>Keyboard Shortcuts</div>
+          <button onClick={function(){setShowShortcuts(false);}} style={{background:"none",border:"none",color:t.textSub,cursor:"pointer",fontSize:14}}>{"\u2715"}</button>
+        </div>
+        {[
+          ["⌘ K","Open ingest modal"],
+          ["Space","Hold to pan canvas"],
+          ["⇧ Shift + drag","Thread cards / categories"],
+          ["Scroll","Zoom in / out"],
+          ["?","Toggle this overlay"],
+          ["Esc","Close drawer / modal"],
+          ["Double-click note","Edit note text"],
+          ["Click connection","Delete thread"]
+        ].map(function(row,i){return <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<7?"1px solid "+t.inputBorder:"none"}}>
+          <span style={{fontSize:11,color:t.textMuted}}>{row[1]}</span>
+          <span style={{padding:"3px 8px",borderRadius:6,background:t.surface,fontSize:10,fontWeight:600,color:t.text,fontFamily:"monospace"}}>{row[0]}</span>
+        </div>;})}
+      </div>
+    </div>}
 
     {modal&&<div onClick={function(){setModal(false);}} style={{position:"fixed",inset:0,zIndex:200,background:t.modalBg,backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"18vh"}}>
       <div onClick={function(e){e.stopPropagation();}} style={{width:"min(400px,90vw)",background:t.modalCard,backdropFilter:"blur(20px)",borderRadius:20,boxShadow:"0 24px 60px rgba(0,0,0,.15)",border:"1px solid "+t.cardBorder,overflow:"hidden"}}>
